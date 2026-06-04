@@ -23,8 +23,8 @@
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/your-username/rag-knowledge-base.git
-cd rag-knowledge-base
+git clone https://github.com/lyadang128-cute/rag-local.git
+cd rag-local
 ```
 
 ### 2. 配置环境
@@ -71,10 +71,13 @@ npm run dev
 **方式三：Docker Compose**
 
 ```bash
+# 首次使用需先创建 .env 文件
+cp backend/.env.example backend/.env
+# 编辑 .env 填入你的 DEEPSEEK_API_KEY，然后启动
 docker compose up -d
 ```
 
-> Docker 模式使用 Qdrant 服务端，启动更快但需额外资源。
+> Docker 模式使用 Qdrant 服务端，启动更快但需额外资源。**海外用户注意：** 默认配置了 HuggingFace 国内镜像 `hf-mirror.com`，海外部署请在 `.env` 中将 `HF_ENDPOINT` 改为 `https://huggingface.co`，否则模型下载会失败。
 
 ### 5. 使用
 
@@ -91,7 +94,7 @@ docker compose up -d
 | `MIN_SCORE` | 最小相关度阈值（越低召回越全） | `0.15` |
 | `RECALL_TOP_K` | 初检候选数 | `100` |
 | `RERANK_TOP_K` | 精排后保留数 | `5` |
-| `HF_ENDPOINT` | HuggingFace 镜像（国内用户必备） | `https://hf-mirror.com` |
+| `HF_ENDPOINT` | HuggingFace 镜像（国内用 `hf-mirror.com`，海外用 `huggingface.co`） | `https://hf-mirror.com` |
 
 ## 项目结构
 
