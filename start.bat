@@ -9,7 +9,7 @@ set "FRONTEND=%ROOT%\frontend"
 set "VENV=%BACKEND%\.venv\Scripts"
 
 echo ==============================================
-echo   RAG Knowledge Base v0.2.1
+echo   RAG Knowledge Base v0.3.0
 echo ==============================================
 echo.
 

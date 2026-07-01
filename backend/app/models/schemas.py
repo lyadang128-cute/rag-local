@@ -92,3 +92,18 @@ class KBStats(BaseModel):
 
 class KBListOut(BaseModel):
     kb_names: list[str]
+
+
+class KBCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    department: str = ""
+    access_level: int = Field(default=1, ge=1, le=3)
+    description: str = ""
+
+
+class KBOut(BaseModel):
+    name: str
+    department: str
+    access_level: int
+    description: str
+    created_at: str

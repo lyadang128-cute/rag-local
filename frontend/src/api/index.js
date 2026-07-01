@@ -1,9 +1,32 @@
 import axios from 'axios'
+import { createRouter } from 'vue-router'
 
 const api = axios.create({
   baseURL: '/api/v1',
   timeout: 300000,  // 5min — first request loads embedding+reranker models
 })
+
+// Auth interceptor — attach Bearer token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('rag_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// 401 interceptor — redirect to login
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('rag_token')
+      localStorage.removeItem('rag_user')
+      window.location.href = '/login'
+    }
+    return Promise.reject(err)
+  },
+)
 
 // KB management
 export function getKBList() {
@@ -12,6 +35,10 @@ export function getKBList() {
 
 export function getKBStats(name) {
   return api.get(`/kb/${encodeURIComponent(name)}`).then(r => r.data)
+}
+
+export function createKB(name, department, accessLevel, description) {
+  return api.post('/kb/create', { name, department, access_level: accessLevel, description }).then(r => r.data)
 }
 
 export function deleteKB(name) {
@@ -63,9 +90,12 @@ export function updateConfig(data) {
 export function chatStream(question, kbName, topK, history, signal, fastMode = false) {
   const body = { question, top_k: topK, history, fast_mode: fastMode }
   if (kbName) body.kb_name = kbName
+  const token = localStorage.getItem('rag_token')
+  const headers = { 'Content-Type': 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
   return fetch('/api/v1/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
     signal,
   })

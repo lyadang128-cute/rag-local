@@ -1,1 +1,1 @@
-from .auth import APIKeyMiddleware
+from .auth import JWTAuthMiddleware

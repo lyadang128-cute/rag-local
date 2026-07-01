@@ -18,7 +18,7 @@ User (Browser)  ──►  Vue 3 SPA  ──►  FastAPI  ──►  DeepSeek AP
 ## 2. Directory Structure
 
 ```
-RAG-demo/
+RAGdemo/
 ├── ARCHITECTURE.md                 # This file
 ├── docker-compose.yml              # Qdrant + backend services
 ├── backend/
@@ -78,9 +78,9 @@ RAG-demo/
 | -------------- | --------------------- | ------------ |
 | Backend        | FastAPI               | ≥ 0.111      |
 | Async Server   | Uvicorn               | ≥ 0.30       |
-| Vector DB      | Qdrant                | ≥ 1.9 (Docker) |
-| LLM            | DeepSeek Chat         | API          |
-| Embedding      | DeepSeek Embedding    | API          |
+| Vector DB      | Qdrant                | ≥ 1.9 (Docker) / embedded |
+| LLM            | DeepSeek Chat         | API (`deepseek-v4-flash`) |
+| Embedding      | Local (bge-small 512D / bge-large 1024D) or API (DeepSeek 4096D) |
 | Frontend       | Vue 3 + Vite          | ≥ 3.4        |
 | HTTP Client    | httpx                 | ≥ 0.27       |
 | Qdrant Client  | qdrant-client         | ≥ 1.9        |
@@ -91,7 +91,7 @@ RAG-demo/
 
 ### 4.1 General Conventions
 
-- Base URL: `http://<host>:8000/api/v1`
+- Base URL: `http://<host>:9090/api/v1`
 - Content-Type: `application/json` (except upload: `multipart/form-data`)
 - Response envelope:
 
@@ -260,7 +260,7 @@ class Embedder:
     def __init__(self, api_key: str, model: str, base_url: str): ...
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Batch embed texts, returns vectors (dim=1024)."""
+        """Batch embed texts. dim depends on mode: local bge-small=512, bge-large=1024, api=4096."""
 
     async def embed_query(self, text: str) -> list[float]:
         """Single query embedding."""
@@ -365,20 +365,34 @@ All settings via environment variables / `.env`:
 | ---------------------- | --------------------------- | -------------------------------- |
 | `DEEPSEEK_API_KEY`     | DeepSeek API key            | (required)                       |
 | `DEEPSEEK_BASE_URL`    | DeepSeek API base URL       | `https://api.deepseek.com`       |
-| `DEEPSEEK_CHAT_MODEL`  | Chat model name             | `deepseek-chat`                  |
-| `DEEPSEEK_EMBED_MODEL` | Embedding model name        | `deepseek-embedding-v1`          |
-| `QDRANT_URL`           | Qdrant server URL           | `http://localhost:6333`          |
+| `DEEPSEEK_CHAT_MODEL`  | Chat model name             | `deepseek-v4-flash`              |
+| `EMBED_MODE`           | `local` or `api`            | `local`                          |
+| `EMBED_LOCAL_MODEL`    | Local sentence-transformers model | `BAAI/bge-small-zh-v1.5`   |
+| `EMBED_API_MODEL`      | DeepSeek embedding model    | `deepseek-embedding`             |
+| `QDRANT_URL`           | Qdrant server URL (remote mode) | `http://localhost:6333`       |
+| `QDRANT_LOCAL_PATH`    | Embedded Qdrant path (no Docker) | `./data/qdrant`             |
 | `QDRANT_COLLECTION`    | Default collection name     | `rag_knowledge_base`             |
 | `CHUNK_SIZE`           | Max tokens per chunk        | `512`                            |
 | `CHUNK_OVERLAP`        | Overlap between chunks      | `64`                             |
 | `TOP_K`                | Default retrieval count     | `5`                              |
+| `MIN_SCORE`            | Cosine similarity threshold | `0.35`                           |
+| `RECALL_TOP_K`         | Candidates before reranking | `20`                             |
+| `RERANK_MODEL`         | Cross-Encoder model         | `BAAI/bge-reranker-v2-m3`       |
+| `RERANK_TOP_K`         | Final chunks after rerank   | `5`                              |
+| `API_RETRY_TIMES`      | Max retries for API calls   | `3`                              |
+| `API_RETRY_BACKOFF`    | Initial backoff seconds     | `1.0`                            |
 | `UPLOAD_DIR`           | Uploaded files directory    | `./data/uploads`                 |
+| `MAX_UPLOAD_SIZE`      | Max upload size (bytes)     | `52428800` (50MB)                |
+| `API_KEY`              | Optional API key auth       | (empty = disabled)               |
+| `ALLOWED_ORIGINS`      | CORS origins (comma-sep)    | `http://localhost:5173`          |
+| `HF_ENDPOINT`          | HuggingFace mirror          | `https://hf-mirror.com`          |
+| `FASTEMBED_CACHE_PATH` | fastembed cache dir         | `./data/fastembed_cache`         |
 
 ## 8. Qdrant Schema
 
 Collection name: `rag_knowledge_base`
 
-Vector: 1024 dimensions, Cosine distance
+Vector: dynamic (512D bge-small / 1024D bge-large / 4096D API), Cosine distance
 
 Point payload:
 

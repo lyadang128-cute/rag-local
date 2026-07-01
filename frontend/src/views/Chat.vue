@@ -87,7 +87,7 @@ let topK = 5
 onMounted(async () => {
   try {
     const [kbRes, cfgRes] = await Promise.all([getKBList(), getConfig()])
-    kbList.value = kbRes.data?.kb_names || []
+    kbList.value = (kbRes.data?.kbs || []).map(kb => kb.name)
     topK = parseInt(cfgRes.data?.rerank_top_k) || 5
   } catch {
     kbList.value = []

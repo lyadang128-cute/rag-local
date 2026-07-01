@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
-from app.middleware.auth import APIKeyMiddleware
+from app.middleware.auth import JWTAuthMiddleware
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,8 +51,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API Key auth (only active when settings.api_key is set)
-app.add_middleware(APIKeyMiddleware)
+# Auth middleware — JWT + API Key
+app.add_middleware(JWTAuthMiddleware)
 
 
 @app.exception_handler(Exception)

@@ -66,7 +66,7 @@ const error = ref('')
 onMounted(async () => {
   try {
     const res = await getKBList()
-    kbList.value = res.data?.kb_names || []
+    kbList.value = (res.data?.kbs || []).map(kb => kb.name)
   } catch {
     error.value = '加载知识库列表失败，请确认后端已启动'
   }

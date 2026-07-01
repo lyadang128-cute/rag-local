@@ -66,18 +66,28 @@ async def process_document_async(
 
         # Chunk — use chapter-aware splitting when possible
         full_text = "".join(segments)
+
+        # Pull KB metadata for department tagging
+        kb_meta = db.get_kb(kb_name) or {}
+        department = kb_meta.get("department", "")
+        access_level = kb_meta.get("access_level", 1)
+
         records = _chunker.split_with_records(
             full_text, doc_id=doc_id, filename=filename, kb_name=kb_name
         )
         if not records:
-            # Fallback: treat each segment as a chunk
             records = [
                 ChunkRecord(
                     doc_id=doc_id, filename=filename, kb_name=kb_name,
                     chunk_index=i, text=seg,
+                    metadata={"department": department, "access_level": access_level},
                 )
                 for i, seg in enumerate(segments)
             ]
+        else:
+            for r in records:
+                r.metadata["department"] = department
+                r.metadata["access_level"] = access_level
 
         # Embed + upsert in batches (avoids OOM on large files)
         embedder = Embedder()

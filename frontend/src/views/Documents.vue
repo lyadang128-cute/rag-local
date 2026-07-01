@@ -126,7 +126,7 @@ const error = ref('')
 onMounted(async () => {
   try {
     const res = await getKBList()
-    kbList.value = res.data?.kb_names || []
+    kbList.value = (res.data?.kbs || []).map(kb => kb.name)
   } catch { /* ignore */ }
   loadDocuments()
 })
@@ -166,7 +166,7 @@ async function doUpload() {
     loadDocuments()
     // refresh KB list
     const kbRes = await getKBList()
-    kbList.value = kbRes.data?.kb_names || []
+    kbList.value = (kbRes.data?.kbs || []).map(kb => kb.name)
   } catch (e) {
     message.value = '上传失败：' + (e.response?.data?.message || e.message)
     messageType.value = 'error'
@@ -187,7 +187,7 @@ async function doImport() {
     importUrl.value = ''
     loadDocuments()
     const kbRes = await getKBList()
-    kbList.value = kbRes.data?.kb_names || []
+    kbList.value = (kbRes.data?.kbs || []).map(kb => kb.name)
   } catch (e) {
     message.value = '导入失败：' + (e.response?.data?.message || e.message)
     messageType.value = 'error'

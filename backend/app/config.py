@@ -51,6 +51,9 @@ class Settings(BaseSettings):
 
     # Security
     api_key: str = ""  # if set, all /api/* require X-API-Key header
+    jwt_secret: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_hours: int = 24
     allowed_origins: str = "http://localhost:5173"  # comma-separated CORS origins
 
     # HuggingFace

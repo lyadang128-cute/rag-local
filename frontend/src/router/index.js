@@ -3,6 +3,11 @@ import Layout from '../views/Layout.vue'
 
 const routes = [
   {
+    path: '/login',
+    name: 'Login',
+    component: () => import('../views/Login.vue'),
+  },
+  {
     path: '/',
     component: Layout,
     redirect: '/chat',
@@ -16,7 +21,19 @@ const routes = [
   },
 ]
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes,
 })
+
+router.beforeEach((to) => {
+  const token = localStorage.getItem('rag_token')
+  if (to.path !== '/login' && !token) {
+    return '/login'
+  }
+  if (to.path === '/login' && token) {
+    return '/chat'
+  }
+})
+
+export default router

@@ -19,6 +19,17 @@
           <span class="nav-icon">⚙️</span> 系统设置
         </router-link>
       </nav>
+
+      <div class="sidebar-footer" v-if="user">
+        <div class="user-info">
+          <span class="user-role-dot" :class="user.role"></span>
+          <div>
+            <div class="user-name">{{ user.username }}</div>
+            <div class="user-dept">{{ user.department || user.role }}</div>
+          </div>
+        </div>
+        <button class="btn-logout" @click="doLogout">退出</button>
+      </div>
     </aside>
     <main class="main">
       <router-view v-slot="{ Component }">
@@ -31,6 +42,21 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
+import { useAuth } from '../composables/useAuth.js'
+
+const { user: authUser, logout, fetchMe } = useAuth()
+const user = ref(authUser.value)
+
+onMounted(async () => {
+  if (!user.value) {
+    user.value = await fetchMe()
+  }
+})
+
+function doLogout() {
+  logout()
+}
 </script>
 
 <style scoped>
@@ -87,6 +113,58 @@ nav {
 }
 
 .nav-icon { font-size: 16px; }
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.user-role-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.user-role-dot.admin { background: #f87171; }
+.user-role-dot.manager { background: #fbbf24; }
+.user-role-dot.employee { background: #34d399; }
+
+.user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.user-dept {
+  font-size: 11px;
+  color: #a5b4fc;
+}
+
+.btn-logout {
+  width: 100%;
+  padding: 6px 0;
+  background: rgba(255,255,255,0.1);
+  color: #c7d2fe;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-logout:hover {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
 
 .main {
   flex: 1;

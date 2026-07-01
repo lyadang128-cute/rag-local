@@ -5,7 +5,7 @@
 ## 功能
 
 - **文档管理** — 支持 PDF / Word / Excel / PPT / TXT / 网页，拖拽上传
-- **混合检索** — Dense（BGE-large 1024D）+ Sparse（BM25），RRF 融合
+- **混合检索** — Dense（bge-small-zh-v1.5 512D）+ Sparse（BM25），RRF 融合
 - **交叉精排** — bge-reranker-v2-m3 对候选 chunk 二次排序
 - **流式对话** — SSE 流式输出，支持多知识库切换
 - **记忆系统** — 手动保存优质回答到 QA Memory，后续相似问题直接命中
