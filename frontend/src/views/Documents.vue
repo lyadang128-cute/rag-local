@@ -117,14 +117,16 @@
           <h3>{{ previewFilename }}</h3>
           <button class="btn-close" @click="previewVisible = false">×</button>
         </div>
-        <div v-if="previewLoading" class="empty-state">加载中...</div>
-        <div v-else-if="previewChunks.length">
-          <div v-for="(chunk, i) in previewChunks" :key="i" class="preview-chunk">
-            <div class="preview-chunk-label">片段 {{ i + 1 }}</div>
-            <p class="preview-text">{{ chunk }}</p>
+        <div class="preview-body">
+          <div v-if="previewLoading" class="empty-state">加载中...</div>
+          <div v-else-if="previewChunks.length">
+            <div v-for="(chunk, i) in previewChunks" :key="i" class="preview-chunk">
+              <div class="preview-chunk-label">片段 {{ i + 1 }}</div>
+              <p class="preview-text">{{ chunk }}</p>
+            </div>
           </div>
+          <div v-else class="empty-state">暂无内容</div>
         </div>
-        <div v-else class="empty-state">暂无内容</div>
       </div>
     </div>
   </div>
@@ -471,7 +473,19 @@ h3 { font-size: 16px; font-weight: 600; }
 .progress-fill.failed { background: var(--danger); }
 
 /* Preview modal */
-.preview-modal { width: 640px; }
+.preview-modal {
+  width: 640px;
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+}
+
+.preview-body {
+  overflow-y: auto;
+  flex: 1;
+  max-height: 60vh;
+  padding-right: 4px;
+}
 
 .modal-header {
   display: flex;
