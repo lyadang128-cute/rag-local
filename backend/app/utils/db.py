@@ -188,5 +188,18 @@ class Database:
         rows = self._conn.execute("SELECT * FROM users ORDER BY created_at DESC").fetchall()
         return [_row_to_dict(r) for r in rows]
 
+    def delete_user(self, username: str) -> bool:
+        cur = self._conn.execute("DELETE FROM users WHERE username = ?", (username,))
+        self._conn.commit()
+        return cur.rowcount > 0
+
+    def update_user_password(self, username: str, password_hash: str) -> bool:
+        self._conn.execute(
+            "UPDATE users SET password_hash = ? WHERE username = ?",
+            (password_hash, username),
+        )
+        self._conn.commit()
+        return True
+
 
 db = Database()

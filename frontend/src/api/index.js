@@ -107,3 +107,12 @@ export function saveMemory(question, answer, kbName) {
   if (kbName) body.kb_name = kbName
   return api.post('/chat/correct', body).then(r => r.data)
 }
+
+// User management (admin)
+export function getUsers() {
+  return api.get('/auth/users').then(r => r.data)
+}
+
+export function deleteUser(username) {
+  return api.delete(`/auth/users/${encodeURIComponent(username)}`).then(r => r.data)
+}

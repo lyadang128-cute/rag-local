@@ -40,6 +40,14 @@ PROCESSORS = {
 
 _chunker = Chunker()
 
+# Progress tracking for active ingestion tasks
+_progress: dict[str, dict] = {}
+
+
+def get_progress(doc_id: str) -> dict | None:
+    """Get progress of an ingestion task."""
+    return _progress.get(doc_id)
+
 
 async def process_document_async(
     doc_id: str,
@@ -94,11 +102,14 @@ async def process_document_async(
         retriever = Retriever()
         BATCH = 64
         all_texts = [r.text for r in records]
+        total_chunks = len(records)
+        _progress[doc_id] = {"status": "embedding", "current": 0, "total": total_chunks}
         for start in range(0, len(records), BATCH):
             batch_texts = all_texts[start : start + BATCH]
             batch_vectors = await embedder.embed(batch_texts)
             batch_records = records[start : start + BATCH]
             await retriever.upsert(batch_vectors, batch_records)
+            _progress[doc_id] = {"status": "indexing", "current": start + len(batch_texts), "total": total_chunks}
             logger.info(
                 "Ingest progress: doc_id=%s %d/%d chunks",
                 doc_id, start + len(batch_texts), len(records),
@@ -114,10 +125,12 @@ async def process_document_async(
             chunk_count=len(records),
             kb_name=kb_name,
         )
+        _progress[doc_id] = {"status": "done", "current": len(records), "total": len(records)}
         logger.info(f"Ingest complete: doc_id={doc_id} chunks={len(records)}")
 
     except Exception:
         logger.exception(f"Ingest failed: doc_id={doc_id} file={filename}")
+        _progress[doc_id] = {"status": "failed", "current": 0, "total": 0}
         db.insert_document(
             doc_id=doc_id,
             filename=filename,

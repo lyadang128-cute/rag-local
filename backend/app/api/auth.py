@@ -41,6 +41,11 @@ class LoginResponse(BaseModel):
     user: UserOut
 
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str = Field(min_length=4, max_length=100)
+
+
 # ── Helpers ──────────────────────────────────────────────────────
 
 def create_token(username: str, role: str, department: str) -> str:
@@ -78,8 +83,10 @@ async def register(req: RegisterRequest):
 @router.post("/login", response_model=APIResponse)
 async def login(req: LoginRequest):
     user = db.get_user_by_username(req.username)
-    if not user or not pwd_context.verify(req.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="用户名或密码错误")
+    if not user:
+        raise HTTPException(status_code=401, detail="用户不存在")
+    if not pwd_context.verify(req.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="密码错误")
 
     token = create_token(user["username"], user["role"], user["department"])
     return APIResponse(data={
@@ -102,3 +109,52 @@ async def me(request: Request):
         "role": user["role"],
         "department": user["department"],
     })
+
+
+@router.get("/users", response_model=APIResponse)
+async def list_users(request: Request):
+    """List all users — admin only."""
+    user = get_user_from_request(request)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可查看用户列表")
+    users = db.list_users()
+    return APIResponse(data={
+        "total": len(users),
+        "users": [{
+            "id": u["id"],
+            "username": u["username"],
+            "role": u["role"],
+            "department": u["department"],
+            "created_at": u["created_at"],
+        } for u in users],
+    })
+
+
+@router.delete("/users/{username}", response_model=APIResponse)
+async def delete_user(username: str, request: Request):
+    """Delete a user — admin only. Cannot delete self."""
+    admin = get_user_from_request(request)
+    if not admin or admin["role"] != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可删除用户")
+    if username == admin["username"]:
+        raise HTTPException(status_code=400, detail="不能删除自己")
+    target = db.get_user_by_username(username)
+    if not target:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    ok = db.delete_user(username)
+    if not ok:
+        raise HTTPException(status_code=500, detail="删除失败")
+    return APIResponse(message=f"用户 '{username}' 已删除")
+
+
+@router.post("/change-password", response_model=APIResponse)
+async def change_password(req: ChangePasswordRequest, request: Request):
+    user = get_user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="未登录")
+    db_user = db.get_user_by_username(user["username"])
+    if not db_user or not pwd_context.verify(req.old_password, db_user["password_hash"]):
+        raise HTTPException(status_code=400, detail="原密码错误")
+    new_hash = pwd_context.hash(req.new_password)
+    db.update_user_password(user["username"], new_hash)
+    return APIResponse(message="密码修改成功")

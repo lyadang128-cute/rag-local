@@ -60,6 +60,13 @@
       </div>
 
       <div v-if="message" :class="['msg-banner', messageType]">{{ message }}</div>
+
+      <div v-if="progress" class="progress-bar-wrap">
+        <div class="progress-label">{{ progressLabel }} — {{ progress.done ? '✅ 完成' : progress.failed ? '❌ 失败' : `处理中 ${progress.current}/${progress.total}` }}</div>
+        <div class="progress-bar">
+          <div class="progress-fill" :class="{ done: progress.done, failed: progress.failed }" :style="{ width: progress.total ? (progress.current / progress.total * 100) + '%' : '0%' }"></div>
+        </div>
+      </div>
     </div>
 
     <div class="card" style="margin-top: 16px;">
@@ -93,6 +100,7 @@
             <td>{{ formatSize(doc.size || 0) }}</td>
             <td>{{ doc.created_at ? new Date(doc.created_at).toLocaleString('zh-CN') : '-' }}</td>
             <td>
+              <button class="btn-outline btn-sm" @click="doPreview(doc.id, doc.filename)">预览</button>
               <button class="btn-danger btn-sm" @click="doDelete(doc.id)">删除</button>
             </td>
           </tr>
@@ -101,11 +109,30 @@
 
       <div v-else class="empty-state">暂无文档，请上传文件</div>
     </div>
+
+    <!-- Preview Modal -->
+    <div v-if="previewVisible" class="modal-overlay" @click.self="previewVisible = false">
+      <div class="modal preview-modal">
+        <div class="modal-header">
+          <h3>{{ previewFilename }}</h3>
+          <button class="btn-close" @click="previewVisible = false">×</button>
+        </div>
+        <div v-if="previewLoading" class="empty-state">加载中...</div>
+        <div v-else-if="previewChunks.length">
+          <div v-for="(chunk, i) in previewChunks" :key="i" class="preview-chunk">
+            <div class="preview-chunk-label">片段 {{ i + 1 }}</div>
+            <p class="preview-text">{{ chunk }}</p>
+          </div>
+        </div>
+        <div v-else class="empty-state">暂无内容</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import axios from 'axios'
 import { getKBList, getDocuments, uploadDocuments, importURL, deleteDocument } from '../api/index.js'
 
 const kbList = ref([])
@@ -122,6 +149,14 @@ const dragover = ref(false)
 const message = ref('')
 const messageType = ref('success')
 const error = ref('')
+const progress = ref(null)
+const progressLabel = ref('')
+
+// Preview
+const previewVisible = ref(false)
+const previewLoading = ref(false)
+const previewFilename = ref('')
+const previewChunks = ref([])
 
 onMounted(async () => {
   try {
@@ -157,14 +192,22 @@ async function doUpload() {
   if (!selectedFiles.value.length) return
   uploading.value = true
   message.value = ''
+  progress.value = null
   try {
     const res = await uploadDocuments(selectedFiles.value, uploadKB.value || null)
     const docs = res.data?.documents || []
     message.value = `成功上传 ${docs.length} 个文件，状态：${docs.map(d => d.status).join(', ')}`
     messageType.value = 'success'
     selectedFiles.value = []
+
+    // Start polling progress for processing documents
+    for (const doc of docs) {
+      if (doc.status === 'processing' && doc.id) {
+        pollProgress(doc.id, doc.filename)
+      }
+    }
+
     loadDocuments()
-    // refresh KB list
     const kbRes = await getKBList()
     kbList.value = (kbRes.data?.kbs || []).map(kb => kb.name)
   } catch (e) {
@@ -213,6 +256,47 @@ async function doDelete(docId) {
     loadDocuments()
   } catch (e) {
     alert('删除失败：' + (e.response?.data?.message || e.message))
+  }
+}
+
+async function pollProgress(docId, filename) {
+  progressLabel.value = filename
+  for (let i = 0; i < 120; i++) {
+    try {
+      const res = await axios.get(`/api/v1/documents/${docId}/progress`)
+      const p = res.data.data
+      if (p.status === 'done') {
+        progress.value = { current: p.total, total: p.total, done: true }
+        setTimeout(() => { progress.value = null }, 3000)
+        loadDocuments()
+        return
+      }
+      if (p.status === 'failed') {
+        progress.value = { current: 0, total: 0, done: false, failed: true }
+        setTimeout(() => { progress.value = null }, 5000)
+        return
+      }
+      progress.value = { current: p.current || 0, total: p.total || 0, done: false }
+    } catch {
+      // ignore polling errors
+    }
+    await new Promise(r => setTimeout(r, 1000))
+  }
+  progress.value = null
+}
+
+async function doPreview(docId, filename) {
+  previewVisible.value = true
+  previewLoading.value = true
+  previewFilename.value = filename
+  previewChunks.value = []
+  try {
+    const res = await axios.get(`/api/v1/documents/${docId}/preview`)
+    previewChunks.value = res.data.data?.chunks || []
+  } catch {
+    previewChunks.value = []
+  } finally {
+    previewLoading.value = false
   }
 }
 </script>
@@ -360,4 +444,103 @@ h3 { font-size: 16px; font-weight: 600; }
   font-size: 14px;
   padding: 40px 0;
 }
+
+.progress-bar-wrap { margin-top: 12px; }
+
+.progress-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.progress-bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.progress-fill.done { background: #22c55e; }
+.progress-fill.failed { background: var(--danger); }
+
+/* Preview modal */
+.preview-modal { width: 640px; }
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 { font-size: 16px; font-weight: 600; }
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.preview-chunk {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.preview-chunk-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.preview-text {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Modal shared (mirrors Layout.vue) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--bg, #fff);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+}
+
+.btn-outline {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-right: 6px;
+}
+
+.btn-outline:hover { background: var(--accent-subtle, #eef2ff); }
 </style>

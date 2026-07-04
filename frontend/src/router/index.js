@@ -16,6 +16,7 @@ const routes = [
       { path: 'search', name: 'Search', component: () => import('../views/Search.vue') },
       { path: 'documents', name: 'Documents', component: () => import('../views/Documents.vue') },
       { path: 'kb', name: 'KB', component: () => import('../views/KBManagement.vue') },
+      { path: 'users', name: 'Users', component: () => import('../views/UserManagement.vue') },
       { path: 'settings', name: 'Settings', component: () => import('../views/Settings.vue') },
     ],
   },

@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.core.retriever import Retriever
 from app.models.schemas import APIResponse, DocumentListOut, DocumentOut, ImportRequest
-from app.tasks.ingestion import process_document_async, process_url_async
+from app.tasks.ingestion import process_document_async, process_url_async, get_progress
 from app.config import settings
 from app.utils.db import db
 from app.utils.file import detect_processor, remove_file, save_upload, validate_file_magic
@@ -160,6 +160,41 @@ async def list_documents(
             items=items, total=total, page=page, page_size=page_size,
         ).model_dump()
     )
+
+
+@router.get("/{doc_id}/progress", response_model=APIResponse)
+async def get_document_progress(doc_id: str):
+    """Get ingestion progress for a document."""
+    prog = get_progress(doc_id)
+    if prog:
+        return APIResponse(data=prog)
+    # Fallback: check DB status
+    entry = db.get_document(doc_id)
+    if entry:
+        if entry["status"] == "indexed":
+            return APIResponse(data={"status": "done", "current": entry.get("chunk_count", 0), "total": entry.get("chunk_count", 0)})
+        if entry["status"] == "failed":
+            return APIResponse(data={"status": "failed", "current": 0, "total": 0})
+    return APIResponse(data={"status": "unknown", "current": 0, "total": 0})
+
+
+@router.get("/{doc_id}/preview", response_model=APIResponse)
+async def preview_document(doc_id: str):
+    """Get a text preview from the uploaded file (first 2000 chars)."""
+    import glob as _glob
+    upload_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "uploads"
+    )
+    matches = _glob.glob(os.path.join(upload_dir, f"{doc_id}*"))
+    if not matches:
+        raise HTTPException(status_code=404, detail="文件不存在")
+    file_path = matches[0]
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            text = f.read(2000)
+        return APIResponse(data={"chunks": [text], "total": 1})
+    except UnicodeDecodeError:
+        return APIResponse(data={"chunks": ["（二进制文件，无法预览）"], "total": 1})
 
 
 @router.get("/{doc_id}", response_model=APIResponse)
