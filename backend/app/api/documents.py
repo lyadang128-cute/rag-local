@@ -189,12 +189,48 @@ async def preview_document(doc_id: str):
     if not matches:
         raise HTTPException(status_code=404, detail="文件不存在")
     file_path = matches[0]
+    ext = os.path.splitext(file_path)[1].lower()
+    text = ""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            text = f.read(2000)
-        return APIResponse(data={"chunks": [text], "total": 1})
-    except UnicodeDecodeError:
-        return APIResponse(data={"chunks": ["（二进制文件，无法预览）"], "total": 1})
+        if ext == ".docx":
+            from docx import Document
+            doc = Document(file_path)
+            text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        elif ext == ".pdf":
+            import fitz
+            doc = fitz.open(file_path)
+            pages = [page.get_text() for page in doc]
+            doc.close()
+            text = "\n".join(pages)
+        elif ext in (".xlsx", ".xls"):
+            from openpyxl import load_workbook
+            wb = load_workbook(file_path, read_only=True, data_only=True)
+            lines = []
+            for ws in wb.worksheets[:2]:
+                for row in ws.iter_rows(values_only=True):
+                    line = " | ".join(str(c) for c in row if c is not None)
+                    if line.strip():
+                        lines.append(line)
+            text = "\n".join(lines)
+        elif ext == ".pptx":
+            from pptx import Presentation
+            prs = Presentation(file_path)
+            slides = []
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if shape.has_text_frame:
+                        s = shape.text_frame.text.strip()
+                        if s:
+                            slides.append(s)
+            text = "\n".join(slides)
+        else:
+            with open(file_path, "r", encoding="utf-8") as f:
+                text = f.read(2000)
+        if not text.strip():
+            return APIResponse(data={"chunks": ["（空文件或无法识别内容）"], "total": 1})
+        return APIResponse(data={"chunks": [text[:2000]], "total": 1})
+    except Exception:
+        return APIResponse(data={"chunks": ["（预览失败，文件可能已损坏）"], "total": 1})
 
 
 @router.get("/{doc_id}", response_model=APIResponse)
